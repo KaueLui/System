@@ -1,13 +1,13 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Attraction } from '@/types'; 
+import { Attraction } from '@/types';
 
 interface AttractionFormData extends Omit<Attraction, 'id'> {}
 
 interface AttractionFormProps {
     onSubmit: (data: AttractionFormData) => void;
-    initialData?: Partial<AttractionFormData>; 
+    initialData?: Attraction;
 }
 
 const AttractionForm: React.FC<AttractionFormProps> = ({ onSubmit, initialData }) => {
@@ -18,17 +18,22 @@ const AttractionForm: React.FC<AttractionFormProps> = ({ onSubmit, initialData }
         horariosDisponiveis: initialData?.horariosDisponiveis || [],
         faixaEtariaMinima: initialData?.faixaEtariaMinima || 0,
         possuiPrioridade: initialData?.possuiPrioridade || false,
-        tiposPassePrioritarios: initialData?.tiposPassePrioritarios || [],
+        tiposPassePrioritarios: initialData?.tiposPassePrioritarios || []
     });
-    const [newScheduleTime, setNewScheduleTime] = useState<string>('');
-    const [newPriorityType, setNewPriorityType] = useState<string>('');
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-        const { name, value, type, checked } = e.target as HTMLInputElement;
-        setFormData(prev => ({
-            ...prev,
-            [name]: type === 'checkbox' ? checked : value
-        }));
+    const [newScheduleTime, setNewScheduleTime] = useState('');
+    const [newPriorityType, setNewPriorityType] = useState('');
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { name, value, type } = e.target;
+        if (type === 'checkbox') {
+            const checked = (e.target as HTMLInputElement).checked;
+            setFormData(prev => ({ ...prev, [name]: checked }));
+        } else if (name === 'capacidadePorHorario' || name === 'faixaEtariaMinima') {
+            setFormData(prev => ({ ...prev, [name]: parseInt(value) || 0 }));
+        } else {
+            setFormData(prev => ({ ...prev, [name]: value }));
+        }
     };
 
     const handleAddScheduleTime = () => {
@@ -70,98 +75,228 @@ const AttractionForm: React.FC<AttractionFormProps> = ({ onSubmit, initialData }
         onSubmit(formData);
     };
 
+    const attractionTypes = [
+        { value: 'montanha-russa', label: '🎢 Montanha-Russa' },
+        { value: 'roda-gigante', label: '🎡 Roda-Gigante' },
+        { value: 'carrossel', label: '🎠 Carrossel' },
+        { value: 'casa-assombrada', label: '👻 Casa Assombrada' },
+        { value: 'aquático', label: '🌊 Atração Aquática' },
+        { value: 'infantil', label: '🧸 Infantil' },
+        { value: 'radical', label: '⚡ Radical' }
+    ];
+
     return (
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-6 border rounded-lg shadow-md bg-white max-w-lg mx-auto">
-            <h3 className="text-2xl font-bold mb-4 text-center">Formulário de Atração</h3>
+        <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Nome */}
+            <div className="space-y-2">
+                <label className="flex items-center gap-2 text-gray-700 font-medium">
+                    <span className="text-blue-500">🎪</span>
+                    Nome da Atração
+                </label>
+                <input 
+                    type="text" 
+                    name="nome" 
+                    value={formData.nome} 
+                    onChange={handleChange} 
+                    required 
+                    placeholder="Digite o nome da atração"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-300 bg-gray-50 focus:bg-white"
+                />
+            </div>
 
-            <label className="block">
-                <span className="text-gray-700">Nome:</span>
-                <input type="text" name="nome" value={formData.nome} onChange={handleChange} required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" />
-            </label>
-
-            <label className="block">
-                <span className="text-gray-700">Tipo:</span>
-                <input type="text" name="tipo" value={formData.tipo} onChange={handleChange} required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" />
-            </label>
-
-            <label className="block">
-                <span className="text-gray-700">Capacidade por Horário:</span>
-                <input type="number" name="capacidadePorHorario" value={formData.capacidadePorHorario} onChange={handleChange} required min="1" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" />
-            </label>
-
-            <label className="block">
-                <span className="text-gray-700">Faixa Etária Mínima:</span>
-                <input type="number" name="faixaEtariaMinima" value={formData.faixaEtariaMinima} onChange={handleChange} required min="0" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" />
-            </label>
-
-            <div className="border border-gray-200 p-3 rounded-md">
-                <span className="block text-gray-700 mb-2">Horários Disponíveis:</span>
-                <div className="flex gap-2 mb-2">
-                    <input
-                        type="time"
-                        value={newScheduleTime}
-                        onChange={(e) => setNewScheduleTime(e.target.value)}
-                        className="rounded-md border-gray-300 shadow-sm p-2"
-                    />
-                    <button type="button" onClick={handleAddScheduleTime} className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm">
-                        Adicionar
-                    </button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                    {formData.horariosDisponiveis.map(time => (
-                        <span key={time} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                            {time}
-                            <button type="button" onClick={() => handleRemoveScheduleTime(time)} className="ml-1 -mr-0.5 h-4 w-4 rounded-full inline-flex items-center justify-center text-blue-400 hover:bg-blue-200 hover:text-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                &times;
-                            </button>
-                        </span>
-                    ))}
+            {/* Tipo */}
+            <div className="space-y-2">
+                <label className="flex items-center gap-2 text-gray-700 font-medium">
+                    <span className="text-purple-500">🎭</span>
+                    Tipo da Atração
+                </label>
+                <div className="relative">
+                    <select 
+                        name="tipo" 
+                        value={formData.tipo} 
+                        onChange={handleChange} 
+                        required
+                        className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all duration-300 bg-gray-50 focus:bg-white appearance-none cursor-pointer"
+                    >
+                        <option value="">Selecione o tipo</option>
+                        {attractionTypes.map(type => (
+                            <option key={type.value} value={type.value}>{type.label}</option>
+                        ))}
+                    </select>
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                        <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </div>
                 </div>
             </div>
 
-            {/* Prioridade para Passes */}
-            <label className="flex items-center gap-2">
-                <input
-                    type="checkbox"
-                    name="possuiPrioridade"
-                    checked={formData.possuiPrioridade}
-                    onChange={handleChange}
-                    className="rounded text-blue-600 shadow-sm focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+            {/* Capacidade */}
+            <div className="space-y-2">
+                <label className="flex items-center gap-2 text-gray-700 font-medium">
+                    <span className="text-green-500">👥</span>
+                    Capacidade por Horário
+                </label>
+                <input 
+                    type="number" 
+                    name="capacidadePorHorario" 
+                    value={formData.capacidadePorHorario} 
+                    onChange={handleChange} 
+                    required 
+                    min="1"
+                    placeholder="Ex: 50"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all duration-300 bg-gray-50 focus:bg-white"
                 />
-                <span className="text-gray-700">Possui Prioridade para Passes Especiais?</span>
-            </label>
+                <p className="text-sm text-gray-500">Quantas pessoas podem usar a atração por horário</p>
+            </div>
 
+            {/* Faixa Etária */}
+            <div className="space-y-2">
+                <label className="flex items-center gap-2 text-gray-700 font-medium">
+                    <span className="text-orange-500">👶</span>
+                    Idade Mínima
+                </label>
+                <input 
+                    type="number" 
+                    name="faixaEtariaMinima" 
+                    value={formData.faixaEtariaMinima} 
+                    onChange={handleChange} 
+                    required 
+                    min="0"
+                    placeholder="Ex: 12"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all duration-300 bg-gray-50 focus:bg-white"
+                />
+                <p className="text-sm text-gray-500">Idade mínima em anos para usar a atração</p>
+            </div>
+
+            {/* Horários Disponíveis */}
+            <div className="space-y-3">
+                <label className="flex items-center gap-2 text-gray-700 font-medium">
+                    <span className="text-indigo-500">🕐</span>
+                    Horários Disponíveis
+                </label>
+                <div className="flex gap-2">
+                    <input 
+                        type="time" 
+                        value={newScheduleTime} 
+                        onChange={(e) => setNewScheduleTime(e.target.value)}
+                        className="flex-1 px-4 py-3 rounded-xl border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all duration-300 bg-gray-50 focus:bg-white"
+                    />
+                    <button 
+                        type="button" 
+                        onClick={handleAddScheduleTime}
+                        className="px-6 py-3 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl font-medium transition-colors shadow-lg hover:shadow-xl"
+                    >
+                        ➕ Adicionar
+                    </button>
+                </div>
+                {formData.horariosDisponiveis.length > 0 && (
+                    <div className="bg-gray-50 rounded-xl p-4">
+                        <h4 className="text-sm font-medium text-gray-700 mb-2">Horários cadastrados:</h4>
+                        <div className="flex flex-wrap gap-2">
+                            {formData.horariosDisponiveis.map((time, index) => (
+                                <span key={index} className="inline-flex items-center gap-2 bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-sm font-medium">
+                                    {time}
+                                    <button 
+                                        type="button" 
+                                        onClick={() => handleRemoveScheduleTime(time)} 
+                                        className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-200 rounded-full w-4 h-4 flex items-center justify-center transition-colors"
+                                    >
+                                        ×
+                                    </button>
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Prioridade */}
+            <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
+                <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                        type="checkbox"
+                        name="possuiPrioridade"
+                        checked={formData.possuiPrioridade}
+                        onChange={handleChange}
+                        className="w-5 h-5 text-yellow-600 rounded focus:ring-yellow-500 focus:ring-2"
+                    />
+                    <span className="flex items-center gap-2 text-yellow-800 font-medium">
+                        <span>⭐</span>
+                        Possui Prioridade para Passes Especiais
+                    </span>
+                </label>
+                <p className="text-sm text-yellow-700 mt-2 ml-8">
+                    Permite que visitantes VIP tenham prioridade na fila
+                </p>
+            </div>
+
+            {/* Tipos de Passe Prioritários */}
             {formData.possuiPrioridade && (
-                <div className="border border-gray-200 p-3 rounded-md">
-                    <span className="block text-gray-700 mb-2">Tipos de Passe Prioritários:</span>
-                    <div className="flex gap-2 mb-2">
-                        <input
-                            type="text"
-                            value={newPriorityType}
-                            onChange={(e) => setNewPriorityType(e.target.value)}
-                            placeholder="Ex: VIP, Passe Anual"
-                            className="rounded-md border-gray-300 shadow-sm p-2 flex-grow"
-                        />
-                        <button type="button" onClick={handleAddPriorityType} className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm">
-                            Adicionar
+                <div className="bg-orange-50 rounded-xl p-4 border border-orange-200">
+                    <h4 className="flex items-center gap-2 text-orange-800 font-medium mb-3">
+                        <span>🎫</span>
+                        Tipos de Passe com Prioridade
+                    </h4>
+                    <div className="flex gap-2 mb-3">
+                        <div className="relative flex-1">
+                            <select
+                                value={newPriorityType}
+                                onChange={(e) => setNewPriorityType(e.target.value)}
+                                className="w-full px-4 py-2 rounded-lg border border-orange-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 bg-white appearance-none"
+                            >
+                                <option value="">Selecione um tipo de passe</option>
+                                <option value="VIP">⭐ VIP</option>
+                                <option value="passe-anual">🎟️ Passe Anual</option>
+                            </select>
+                            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                                <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </div>
+                        </div>
+                        <button 
+                            type="button" 
+                            onClick={handleAddPriorityType}
+                            className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-colors"
+                        >
+                            ➕
                         </button>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                        {(formData.tiposPassePrioritarios || []).map(type => (
-                            <span key={type} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
-                                {type}
-                                <button type="button" onClick={() => handleRemovePriorityType(type)} className="ml-1 -mr-0.5 h-4 w-4 rounded-full inline-flex items-center justify-center text-purple-400 hover:bg-purple-200 hover:text-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500">
-                                    &times;
-                                </button>
-                            </span>
-                        ))}
-                    </div>
+                    {(formData.tiposPassePrioritarios || []).length > 0 && (
+                        <div>
+                            <p className="text-sm text-orange-700 mb-2">Passes com prioridade:</p>
+                            <div className="flex flex-wrap gap-2">
+                                {(formData.tiposPassePrioritarios || []).map((type, index) => (
+                                    <span key={index} className="inline-flex items-center gap-2 bg-orange-200 text-orange-800 px-3 py-1 rounded-full text-sm font-medium">
+                                        {type}
+                                        <button 
+                                            type="button" 
+                                            onClick={() => handleRemovePriorityType(type)} 
+                                            className="text-orange-600 hover:text-orange-800 hover:bg-orange-300 rounded-full w-4 h-4 flex items-center justify-center transition-colors"
+                                        >
+                                            ×
+                                        </button>
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 
-            <button type="submit" className="mt-4 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
-                Salvar Atração
-            </button>
+            {/* Botão de Submit */}
+            <div className="pt-4">
+                <button 
+                    type="submit" 
+                    className="w-full bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white py-4 px-6 rounded-xl font-bold text-lg transition-all duration-300 shadow-lg hover:shadow-2xl transform hover:scale-105"
+                >
+                    <span className="flex items-center justify-center gap-3">
+                        <span className="text-xl">🎢</span>
+                        Cadastrar Atração
+                    </span>
+                </button>
+            </div>
         </form>
     );
 };
