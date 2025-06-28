@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { getVisitorQueues, getVisitorReservations, getVisitors } from '@/services/api';
+import { getVisitorQueues, getVisitorReservations, getVisitors, getVisitorAttractionHistory, AttractionHistoryEntry } from '@/services/api';
 import { QueueEntry, Reservation, Visitor } from '@/types';
 
 const VisitorPortalPage: React.FC = () => {
@@ -9,9 +9,10 @@ const VisitorPortalPage: React.FC = () => {
     const [visitor, setVisitor] = useState<Visitor | null>(null);
     const [queues, setQueues] = useState<QueueEntry[]>([]);
     const [reservations, setReservations] = useState<Reservation[]>([]);
+    const [attractionHistory, setAttractionHistory] = useState<AttractionHistoryEntry[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'queues' | 'reservations'>('queues');
+    const [activeTab, setActiveTab] = useState<'queues' | 'reservations' | 'history'>('queues');
 
     const fetchVisitorData = async (id: string) => {
         try {
@@ -27,6 +28,9 @@ const VisitorPortalPage: React.FC = () => {
 
             const reservationsData = await getVisitorReservations(id);
             setReservations(reservationsData);
+
+            const historyData = await getVisitorAttractionHistory(id);
+            setAttractionHistory(historyData);
 
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Erro desconhecido ao carregar dados do visitante.');
@@ -211,6 +215,19 @@ const VisitorPortalPage: React.FC = () => {
                                 Minhas Reservas ({reservations.length})
                             </span>
                         </button>
+                        <button
+                            onClick={() => setActiveTab('history')}
+                            className={`flex-1 py-4 px-6 font-semibold text-lg transition-all duration-300 ${
+                                activeTab === 'history'
+                                    ? 'bg-gradient-to-r from-green-500 to-teal-500 text-white'
+                                    : 'text-gray-600 hover:bg-gray-50'
+                            }`}
+                        >
+                            <span className="flex items-center justify-center gap-2">
+                                <span>📜</span>
+                                Histórico ({attractionHistory.length})
+                            </span>
+                        </button>
                     </div>
 
                     {/* Conteúdo das Tabs */}
@@ -272,7 +289,7 @@ const VisitorPortalPage: React.FC = () => {
                                     </div>
                                 )}
                             </div>
-                        ) : (
+                        ) : activeTab === 'reservations' ? (
                             // Tab de Reservas
                             <div>
                                 {reservations.length === 0 ? (
@@ -325,6 +342,102 @@ const VisitorPortalPage: React.FC = () => {
                                     </div>
                                 )}
                             </div>
+                        ) : (
+                            // Tab de Histórico
+                            <div>
+                                {attractionHistory.length === 0 ? (
+                                    <div className="text-center py-16">
+                                        <div className="text-8xl mb-6">📜</div>
+                                        <h3 className="text-2xl font-bold text-gray-700 mb-4">Nenhuma atração visitada</h3>
+                                        <p className="text-gray-500 mb-8">Seu histórico de visitas aparecerá aqui quando você completar reservas.</p>
+                                        <a 
+                                            href="/" 
+                                            className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-full font-medium transition-colors shadow-lg hover:shadow-xl"
+                                        >
+                                            <span>🎢</span>
+                                            Explorar Atrações
+                                        </a>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                                            <span>📜</span>
+                                            Histórico de Atrações Visitadas
+                                        </h3>
+                                        
+                                        {/* Estatísticas Rápidas */}
+                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+                                            <div className="bg-gradient-to-r from-green-50 to-teal-50 rounded-xl p-4 text-center border border-green-200">
+                                                <div className="text-green-500 text-xl mb-1">🏆</div>
+                                                <div className="text-2xl font-bold text-green-600">
+                                                    {attractionHistory.length}
+                                                </div>
+                                                <div className="text-sm text-green-600">Atrações Visitadas</div>
+                                            </div>
+                                            
+                                            <div className="bg-gradient-to-r from-green-50 to-teal-50 rounded-xl p-4 text-center border border-green-200">
+                                                <div className="text-green-500 text-xl mb-1">🎟️</div>
+                                                <div className="text-2xl font-bold text-green-600">
+                                                    {attractionHistory.reduce((total, attr) => total + attr.totalVisitas, 0)}
+                                                </div>
+                                                <div className="text-sm text-green-600">Total de Visitas</div>
+                                            </div>
+                                            
+                                            <div className="bg-gradient-to-r from-green-50 to-teal-50 rounded-xl p-4 text-center border border-green-200 md:col-span-1 col-span-2">
+                                                <div className="text-green-500 text-xl mb-1">❤️</div>
+                                                <div className="text-2xl font-bold text-green-600">
+                                                    {attractionHistory.length > 0 ? attractionHistory[0].nome : '-'}
+                                                </div>
+                                                <div className="text-sm text-green-600">Atração Favorita</div>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Lista de Atrações Visitadas */}
+                                        {attractionHistory.map((attraction, index) => (
+                                            <div key={index} className="bg-gradient-to-r from-green-50 to-teal-50 rounded-2xl p-6 border border-green-200 hover:shadow-lg transition-all duration-300">
+                                                <div className="flex items-start justify-between mb-4">
+                                                    <div>
+                                                        <h4 className="text-xl font-bold text-gray-800 mb-2 flex items-center gap-2">
+                                                            <span className="text-2xl">{index === 0 ? '🏆' : '🎢'}</span>
+                                                            {attraction.nome}
+                                                        </h4>
+                                                        <div className="flex items-center text-sm text-gray-600 mb-2">
+                                                            <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full font-medium mr-2">
+                                                                {attraction.totalVisitas} {attraction.totalVisitas === 1 ? 'visita' : 'visitas'}
+                                                            </span>
+                                                            {index === 0 && (
+                                                                <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full font-medium">
+                                                                    Atração favorita
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                {/* Histórico de Visitas */}
+                                                <div className="bg-white rounded-xl p-4 mt-2">
+                                                    <h5 className="font-medium text-gray-700 mb-3">Histórico de Visitas:</h5>
+                                                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                                                        {attraction.visitas.map((visita, idx) => (
+                                                            <div key={idx} className="flex items-center justify-between text-sm border-b border-gray-100 pb-2">
+                                                                <div className="flex items-center">
+                                                                    <span className="text-gray-400 mr-2">📅</span>
+                                                                    <span className="text-gray-600">
+                                                                        {new Date(visita.data).toLocaleDateString('pt-BR')} às {visita.horario}
+                                                                    </span>
+                                                                </div>
+                                                                <span className="font-mono text-xs text-gray-500">
+                                                                    ID: {visita.reservationId.slice(-8)}
+                                                                </span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         )}
                     </div>
                 </div>
@@ -345,9 +458,13 @@ const VisitorPortalPage: React.FC = () => {
                                 <div className="text-sm opacity-80 mt-1">Explorar o parque</div>
                             </div>
                         </a>
-                        
-                        <button 
-                            onClick={() => window.location.reload()} 
+                          <button 
+                            onClick={() => {
+                                if (visitorId) {
+                                    setLoading(true);
+                                    fetchVisitorData(visitorId);
+                                }
+                            }} 
                             className="group bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white p-6 rounded-2xl font-medium transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
                         >
                             <div className="text-center">

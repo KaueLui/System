@@ -36,6 +36,9 @@ export async function seedDatabase(): Promise<void> {
         await saveDataToDatabase();
         console.log('💾 Dados salvos no banco de dados!');
 
+        // Mostrar ID de um visitante para teste rápido
+        showVisitorTestInfo();
+
         console.log('🎉 Seed completado com sucesso!');
         
         // Estatísticas
@@ -44,10 +47,43 @@ export async function seedDatabase(): Promise<void> {
         console.log(`   👥 Visitantes: ${visitorsStore.toArray().length}`);
         console.log(`   🎯 Filas ativas: ${virtualQueuesStore.toArray().length}`);
         console.log(`   📅 Reservas: ${reservationsStore.toArray().length}`);
+        console.log(`   🎪 Histórico de atrações visitadas: ${reservationsStore.toArray().filter(r => r.status === 'concluida').length}`);
 
     } catch (error) {
         console.error('❌ Erro durante o seed:', error);
         throw error;
+    }
+}
+
+// Função para mostrar informações de um visitante para testes
+function showVisitorTestInfo(): void {
+    try {
+        // Pegamos o primeiro visitante VIP que tem mais atividade no sistema
+        const visitor = visitorsStore.toArray().find(v => v.tipoIngresso === 'VIP');
+        
+        if (visitor) {
+            // Contamos quantas reservas concluídas ele possui
+            const completedReservations = reservationsStore.toArray().filter(
+                r => r.visitorId === visitor.id && r.status === 'concluida'
+            ).length;
+            
+            // Contamos em quantas filas ele está
+            const activeQueues = virtualQueuesStore.toArray().filter(
+                q => q.visitorId === visitor.id
+            ).length;
+            
+            console.log('\n🧪 INFORMAÇÕES PARA TESTE RÁPIDO:');
+            console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            console.log(`📌 Copie este ID para fazer login rapidamente: ${visitor.id}`);
+            console.log(`👤 Visitante: ${visitor.nome} (${visitor.tipoIngresso})`);
+            console.log(`📧 Email: ${visitor.email}`);
+            console.log(`🎯 Filas ativas: ${activeQueues}`);
+            console.log(`🎪 Histórico de atrações: ${completedReservations}`);
+            console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            console.log('🔍 Navegue para /portal após iniciar o frontend e use o ID acima para testar');
+        }
+    } catch (error) {
+        console.error('Erro ao gerar informações de teste:', error);
     }
 }
 
@@ -464,6 +500,13 @@ async function seedReservations(): Promise<void> {
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
+    
+    // Criando datas passadas para histórico
+    const daysAgo = (days: number): Date => {
+        const date = new Date(today);
+        date.setDate(date.getDate() - days);
+        return date;
+    };
 
     const reservationData = [
         // Reservas de hoje
@@ -484,6 +527,63 @@ async function seedReservations(): Promise<void> {
         // Algumas reservas canceladas
         { visitorIndex: 11, attractionIndex: 7, horario: "20:00", status: "cancelada", date: today },
         { visitorIndex: 0, attractionIndex: 13, horario: "18:00", status: "cancelada", date: yesterday },
+        
+        // ====== HISTÓRICO DE ATRAÇÕES VISITADAS ======
+        
+        // Histórico de Ana Silva (VIP) - Visitante frequente
+        { visitorIndex: 0, attractionIndex: 0, horario: "10:30", status: "concluida", date: daysAgo(7) }, // Tornado Supremo
+        { visitorIndex: 0, attractionIndex: 0, horario: "15:00", status: "concluida", date: daysAgo(14) }, // Tornado Supremo (repetido)
+        { visitorIndex: 0, attractionIndex: 8, horario: "13:00", status: "concluida", date: daysAgo(7) }, // Splash Mountain
+        { visitorIndex: 0, attractionIndex: 8, horario: "11:00", status: "concluida", date: daysAgo(21) }, // Splash Mountain (repetido)
+        { visitorIndex: 0, attractionIndex: 12, horario: "19:00", status: "concluida", date: daysAgo(7) }, // Torre da Morte
+        { visitorIndex: 0, attractionIndex: 3, horario: "20:00", status: "concluida", date: daysAgo(14) }, // Roda Gigante
+        { visitorIndex: 0, attractionIndex: 1, horario: "14:00", status: "concluida", date: daysAgo(21) }, // Dragão de Fogo
+        
+        // Histórico de Carlos Eduardo (VIP)
+        { visitorIndex: 1, attractionIndex: 0, horario: "09:00", status: "concluida", date: daysAgo(5) }, // Tornado Supremo
+        { visitorIndex: 1, attractionIndex: 1, horario: "11:00", status: "concluida", date: daysAgo(5) }, // Dragão de Fogo
+        { visitorIndex: 1, attractionIndex: 8, horario: "14:00", status: "concluida", date: daysAgo(5) }, // Splash Mountain
+        { visitorIndex: 1, attractionIndex: 12, horario: "17:00", status: "concluida", date: daysAgo(5) }, // Torre da Morte
+        { visitorIndex: 1, attractionIndex: 13, horario: "18:00", status: "concluida", date: daysAgo(5) }, // Catapulta Extrema
+        { visitorIndex: 1, attractionIndex: 1, horario: "12:30", status: "concluida", date: daysAgo(10) }, // Dragão de Fogo (repetido)
+        
+        // Histórico de Mariana Costa (VIP)
+        { visitorIndex: 2, attractionIndex: 3, horario: "10:00", status: "concluida", date: daysAgo(3) }, // Roda Gigante
+        { visitorIndex: 2, attractionIndex: 4, horario: "14:15", status: "concluida", date: daysAgo(3) }, // Carrossel Mágico
+        { visitorIndex: 2, attractionIndex: 5, horario: "17:45", status: "concluida", date: daysAgo(3) }, // Cavalinhos Encantados
+        { visitorIndex: 2, attractionIndex: 3, horario: "19:00", status: "concluida", date: daysAgo(10) }, // Roda Gigante (repetido)
+        
+        // Histórico de Roberto Fernandes (Passe Anual)
+        { visitorIndex: 3, attractionIndex: 0, horario: "09:00", status: "concluida", date: daysAgo(4) }, // Tornado Supremo
+        { visitorIndex: 3, attractionIndex: 8, horario: "13:00", status: "concluida", date: daysAgo(4) }, // Splash Mountain
+        { visitorIndex: 3, attractionIndex: 0, horario: "16:30", status: "concluida", date: daysAgo(15) }, // Tornado Supremo (repetido)
+        { visitorIndex: 3, attractionIndex: 3, horario: "20:00", status: "concluida", date: daysAgo(15) }, // Roda Gigante
+        
+        // Histórico de Juliana Pereira (Passe Anual)
+        { visitorIndex: 4, attractionIndex: 10, horario: "10:00", status: "concluida", date: daysAgo(6) }, // Trenzinho da Alegria
+        { visitorIndex: 4, attractionIndex: 11, horario: "13:30", status: "concluida", date: daysAgo(6) }, // Parquinho dos Sonhos
+        { visitorIndex: 4, attractionIndex: 10, horario: "15:00", status: "concluida", date: daysAgo(20) }, // Trenzinho da Alegria (repetido)
+        
+        // Histórico de Fernando Almeida (Passe Anual)
+        { visitorIndex: 5, attractionIndex: 1, horario: "11:00", status: "concluida", date: daysAgo(8) }, // Dragão de Fogo
+        { visitorIndex: 5, attractionIndex: 6, horario: "18:00", status: "concluida", date: daysAgo(8) }, // Mansão do Terror
+        { visitorIndex: 5, attractionIndex: 7, horario: "20:30", status: "concluida", date: daysAgo(8) }, // Labirinto Sombrio
+        
+        // Histórico de Sofia Ribeiro (Normal)
+        { visitorIndex: 6, attractionIndex: 2, horario: "10:00", status: "concluida", date: daysAgo(2) }, // Aventura Familiar
+        { visitorIndex: 6, attractionIndex: 3, horario: "14:00", status: "concluida", date: daysAgo(2) }, // Roda Gigante
+        { visitorIndex: 6, attractionIndex: 9, horario: "16:30", status: "concluida", date: daysAgo(2) }, // Rio Selvagem
+        
+        // Histórico de Miguel Santos (Normal)
+        { visitorIndex: 7, attractionIndex: 10, horario: "09:00", status: "concluida", date: daysAgo(9) }, // Trenzinho da Alegria
+        { visitorIndex: 7, attractionIndex: 4, horario: "12:15", status: "concluida", date: daysAgo(9) }, // Carrossel Mágico
+        { visitorIndex: 7, attractionIndex: 2, horario: "16:00", status: "concluida", date: daysAgo(9) }, // Aventura Familiar
+        
+        // Histórico de visitantes avulsos
+        { visitorIndex: 8, attractionIndex: 3, horario: "11:00", status: "concluida", date: daysAgo(12) }, // Larissa - Roda Gigante
+        { visitorIndex: 9, attractionIndex: 0, horario: "18:00", status: "concluida", date: daysAgo(18) }, // Lucas - Tornado Supremo
+        { visitorIndex: 10, attractionIndex: 3, horario: "15:00", status: "concluida", date: daysAgo(25) }, // Isabella - Roda Gigante
+        { visitorIndex: 11, attractionIndex: 1, horario: "17:00", status: "concluida", date: daysAgo(30) }, // Gabriel - Dragão de Fogo
     ];
 
     for (const reservation of reservationData) {

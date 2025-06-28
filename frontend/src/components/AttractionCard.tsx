@@ -1,7 +1,8 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Attraction } from '@/types';
+import { createReservation } from '@/services/api';
 
 interface AttractionCardProps {
     attraction: Attraction;
@@ -10,6 +11,13 @@ interface AttractionCardProps {
 }
 
 const AttractionCard: React.FC<AttractionCardProps> = ({ attraction, onJoinQueue, visitorId }) => {
+    const [showReservationModal, setShowReservationModal] = useState(false);
+    const [selectedHorario, setSelectedHorario] = useState<string>('');
+    const [reservationDate, setReservationDate] = useState<string>(new Date().toISOString().split('T')[0]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [reservationError, setReservationError] = useState<string | null>(null);
+    const [reservationSuccess, setReservationSuccess] = useState(false);
+
     const getAttractionIcon = (tipo: string) => {
         const icons: { [key: string]: string } = {
             'montanha-russa': '🎢',
@@ -46,6 +54,39 @@ const AttractionCard: React.FC<AttractionCardProps> = ({ attraction, onJoinQueue
     };
 
     const intensity = getIntensityLevel(attraction.faixaEtariaMinima, attraction.tipo);
+
+    const handleReservation = async () => {
+        if (!visitorId || !selectedHorario) {
+            setReservationError('Selecione um horário para fazer a reserva.');
+            return;
+        }
+
+        setIsLoading(true);
+        setReservationError(null);
+        
+        try {
+            await createReservation({
+                visitorId,
+                attractionId: attraction.id,
+                horarioReserva: selectedHorario,
+                dataReserva: reservationDate
+            });
+            
+            setReservationSuccess(true);
+            setTimeout(() => {
+                setShowReservationModal(false);
+                setReservationSuccess(false);
+            }, 2000);
+        } catch (error) {
+            if (error instanceof Error) {
+                setReservationError(error.message);
+            } else {
+                setReservationError('Erro ao fazer a reserva. Tente novamente.');
+            }
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     return (
         <div className="group bg-white rounded-3xl shadow-lg border border-gray-100 hover:shadow-2xl transition-all duration-500 overflow-hidden transform hover:-translate-y-2 hover:scale-105">
@@ -137,13 +178,22 @@ const AttractionCard: React.FC<AttractionCardProps> = ({ attraction, onJoinQueue
                 {/* Botão de Ação */}
                 <div className="pt-2">
                     {visitorId ? (
-                        <button
-                            onClick={() => onJoinQueue(attraction.id)}
-                            className={`w-full bg-gradient-to-r ${getThemeColor(attraction.tipo)} hover:shadow-lg text-white py-3 px-4 rounded-2xl font-bold transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2 group-hover:shadow-2xl`}
-                        >
-                            <span className="text-lg">🎫</span>
-                            Entrar na Fila
-                        </button>
+                        <div className="space-y-2">
+                            <button
+                                onClick={() => onJoinQueue(attraction.id)}
+                                className={`w-full bg-gradient-to-r ${getThemeColor(attraction.tipo)} hover:shadow-lg text-white py-3 px-4 rounded-2xl font-bold transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2 group-hover:shadow-2xl`}
+                            >
+                                <span className="text-lg">🎫</span>
+                                Entrar na Fila
+                            </button>
+                            <button
+                                onClick={() => setShowReservationModal(true)}
+                                className={`w-full bg-white border-2 border-gray-200 hover:border-${getThemeColor(attraction.tipo).split(' ')[1]} text-gray-700 py-3 px-4 rounded-2xl font-bold transition-all duration-300 flex items-center justify-center gap-2`}
+                            >
+                                <span className="text-lg">📅</span>
+                                Fazer Reserva
+                            </button>
+                        </div>
                     ) : (
                         <div className="space-y-2">
                             <div className="bg-orange-100 border border-orange-200 rounded-xl p-3 text-center">
@@ -170,6 +220,109 @@ const AttractionCard: React.FC<AttractionCardProps> = ({ attraction, onJoinQueue
                     ID: {attraction.id.slice(-8)}
                 </div>
             </div>
+
+            {/* Modal de Reserva */}
+            {showReservationModal && (
+                <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white rounded-3xl shadow-2xl p-6 md:p-8 w-11/12 max-w-md animate-fade-in animate-scale-in relative">
+                        {/* Botão de fechar */}
+                        <button 
+                            onClick={() => setShowReservationModal(false)}
+                            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-xl w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+                        >
+                            &times;
+                        </button>
+
+                        {/* Cabeçalho */}
+                        <div className={`text-center mb-6 pb-6 border-b border-gray-100`}>
+                            <div className="text-4xl mb-4">{getAttractionIcon(attraction.tipo)}</div>
+                            <h3 className="text-xl font-bold text-gray-800 mb-2">{attraction.nome}</h3>
+                            <p className="text-gray-500">Selecione um horário para sua reserva</p>
+                        </div>
+
+                        {reservationSuccess ? (
+                            <div className="text-center py-10">
+                                <div className="text-6xl mb-4">✅</div>
+                                <h3 className="text-xl font-bold text-green-600 mb-2">Reserva Confirmada!</h3>
+                                <p className="text-gray-600">Sua reserva foi realizada com sucesso.</p>
+                            </div>
+                        ) : (
+                            <>
+                                {/* Formulário de Reserva */}
+                                <div className="space-y-6">
+                                    {/* Data da Reserva */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Data da Reserva</label>
+                                        <input
+                                            type="date"
+                                            value={reservationDate}
+                                            onChange={(e) => setReservationDate(e.target.value)}
+                                            min={new Date().toISOString().split('T')[0]}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                            required
+                                        />
+                                    </div>
+
+                                    {/* Horários Disponíveis */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Horário da Reserva</label>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {attraction.horariosDisponiveis.map((horario) => (
+                                                <button
+                                                    key={horario}
+                                                    type="button"
+                                                    onClick={() => setSelectedHorario(horario)}
+                                                    className={`py-2 px-3 rounded-xl text-center transition-all ${
+                                                        selectedHorario === horario
+                                                            ? `bg-gradient-to-r ${getThemeColor(attraction.tipo)} text-white`
+                                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                                    }`}
+                                                >
+                                                    {horario}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Mensagem de erro */}
+                                    {reservationError && (
+                                        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm">
+                                            {reservationError}
+                                        </div>
+                                    )}
+
+                                    {/* Botão de Confirmar */}
+                                    <button
+                                        onClick={handleReservation}
+                                        disabled={isLoading || !selectedHorario}
+                                        className={`w-full bg-gradient-to-r ${getThemeColor(attraction.tipo)} text-white py-3 px-6 rounded-xl font-bold transition-all ${
+                                            isLoading || !selectedHorario ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-lg'
+                                        }`}
+                                    >
+                                        {isLoading ? (
+                                            <div className="flex items-center justify-center gap-2">
+                                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                                Processando...
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center justify-center gap-2">
+                                                <span>📅</span>
+                                                Confirmar Reserva
+                                            </div>
+                                        )}
+                                    </button>
+
+                                    {/* Informações Adicionais */}
+                                    <div className="text-xs text-gray-500 text-center mt-4">
+                                        <p>Capacidade por horário: {attraction.capacidadePorHorario} pessoas</p>
+                                        <p>Idade mínima: {attraction.faixaEtariaMinima}+ anos</p>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
