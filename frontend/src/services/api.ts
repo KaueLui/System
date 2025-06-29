@@ -24,6 +24,25 @@ export const createAttraction = async (attractionData: Omit<Attraction, 'id'>): 
     return handleResponse<Attraction>(response);
 };
 
+export const updateAttraction = async (id: string, attractionData: Partial<Omit<Attraction, 'id'>>): Promise<Attraction> => {
+    const response = await fetch(`${API_BASE_URL}/attractions/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(attractionData),
+    });
+    return handleResponse<Attraction>(response);
+};
+
+export const deleteAttraction = async (id: string): Promise<void> => {
+    const response = await fetch(`${API_BASE_URL}/attractions/${id}`, {
+        method: 'DELETE',
+    });
+    if (response.status !== 204 && !response.ok) { // 204 No Content is a success status
+        const errorData = await response.json().catch(() => ({})); // Catch if there's no body
+        throw new Error(errorData.message || `Erro na requisição: ${response.status}`);
+    }
+};
+
 export const createVisitor = async (visitorData: Omit<Visitor, 'id'>): Promise<Visitor> => {
     const response = await fetch(`${API_BASE_URL}/visitors`, {
         method: 'POST',
