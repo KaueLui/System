@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import AttractionForm from '@/components/AttractionForm';
-import { createAttraction, getAttractions } from '@/services/api';
+import { createAttraction, getAttractions, updateAttraction, deleteAttraction } from '@/services/api';
 import { Attraction } from '@/types'; 
 
 const ManageAttractionsPage: React.FC = () => {
@@ -10,6 +10,7 @@ const ManageAttractionsPage: React.FC = () => {
     const [attractions, setAttractions] = useState<Attraction[]>([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
+    const [editingAttraction, setEditingAttraction] = useState<Attraction | null>(null);
 
     const fetchAttractions = async () => {
         try {
@@ -27,15 +28,43 @@ const ManageAttractionsPage: React.FC = () => {
         fetchAttractions();
     }, []);
 
-    const handleCreateAttraction = async (formData: Omit<Attraction, 'id'>) => {
+    const handleFormSubmit = async (formData: Omit<Attraction, 'id'>) => {
         try {
-            const newAttraction = await createAttraction(formData);
-            setMessage(`Atração "${newAttraction.nome}" cadastrada com sucesso!`);
-            fetchAttractions(); 
+            if (editingAttraction) {
+                const updated = await updateAttraction(editingAttraction.id, formData);
+                setMessage(`Atração "${updated.nome}" atualizada com sucesso!`);
+            } else {
+                const newAttraction = await createAttraction(formData);
+                setMessage(`Atração "${newAttraction.nome}" cadastrada com sucesso!`);
+            }
+            fetchAttractions();
             setShowForm(false);
+            setEditingAttraction(null);
         } catch (err) {
-            setMessage(`Falha ao cadastrar atração: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
+            setMessage(`Falha ao salvar atração: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
         }
+    };
+
+    const handleEdit = (attraction: Attraction) => {
+        setEditingAttraction(attraction);
+        setShowForm(true);
+    };
+
+    const handleDelete = async (id: string) => {
+        if (window.confirm("Tem certeza que deseja excluir esta atração?")) {
+            try {
+                await deleteAttraction(id);
+                setMessage("Atração excluída com sucesso!");
+                fetchAttractions();
+            } catch (err) {
+                setMessage(`Falha ao excluir atração: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
+            }
+        }
+    };
+
+    const handleCancelEdit = () => {
+        setShowForm(false);
+        setEditingAttraction(null);
     };
 
     const getAttractionIcon = (tipo: string) => {
@@ -121,11 +150,11 @@ const ManageAttractionsPage: React.FC = () => {
                     <div className="mb-12">
                         <div className="bg-white rounded-3xl shadow-2xl overflow-hidden max-w-2xl mx-auto">
                             <div className="bg-gradient-to-r from-orange-600 to-red-600 p-6 text-white text-center">
-                                <h2 className="text-2xl font-bold">Nova Atração</h2>
-                                <p className="opacity-90 mt-2">Configure uma nova experiência para os visitantes!</p>
+                                <h2 className="text-2xl font-bold">{editingAttraction ? 'Editar Atração' : 'Nova Atração'}</h2>
+                                <p className="opacity-90 mt-2">{editingAttraction ? 'Atualize os detalhes da experiência.' : 'Configure uma nova experiência para os visitantes!'}</p>
                             </div>
                             <div className="p-8">
-                                <AttractionForm onSubmit={handleCreateAttraction} />
+                                <AttractionForm onSubmit={handleFormSubmit} initialData={editingAttraction || undefined} onCancel={handleCancelEdit} />
                             </div>
                         </div>
                     </div>
@@ -198,50 +227,29 @@ const ManageAttractionsPage: React.FC = () => {
                                             <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
                                                 <span>🕐</span> Horários ({attraction.horariosDisponiveis.length})
                                             </h4>
-                                            <div className="flex flex-wrap gap-1">
-                                                {attraction.horariosDisponiveis.slice(0, 4).map((horario, index) => (
-                                                    <span 
-                                                        key={index}
-                                                        className="bg-gray-100 text-gray-700 px-2 py-1 rounded-lg text-xs font-medium"
-                                                    >
-                                                        {horario}
+                                            <div className="flex flex-wrap gap-2">
+                                                {attraction.horariosDisponiveis.map(time => (
+                                                    <span key={time} className="bg-gray-100 text-gray-700 px-2 py-1 rounded-md text-xs font-medium">
+                                                        {time}
                                                     </span>
                                                 ))}
-                                                {attraction.horariosDisponiveis.length > 4 && (
-                                                    <span className="bg-gray-200 text-gray-600 px-2 py-1 rounded-lg text-xs">
-                                                        +{attraction.horariosDisponiveis.length - 4}
-                                                    </span>
-                                                )}
                                             </div>
                                         </div>
 
-                                        {/* Prioridade */}
-                                        {attraction.possuiPrioridade && (
-                                            <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl p-3 border border-yellow-200">
-                                                <h4 className="text-sm font-semibold text-orange-700 mb-1 flex items-center gap-2">
-                                                    <span>⭐</span> Prioridade VIP
-                                                </h4>
-                                                <div className="flex flex-wrap gap-1">
-                                                    {attraction.tiposPassePrioritarios?.map((tipo, index) => (
-                                                        <span key={index} className="bg-orange-100 text-orange-700 px-2 py-1 rounded text-xs font-medium">
-                                                            {tipo}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Status */}
-                                        <div className="pt-4 border-t border-gray-100">
-                                            <div className="flex items-center justify-between">
-                                                <span className="flex items-center gap-2 text-sm text-gray-600">
-                                                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                                                    Ativa
-                                                </span>
-                                                <span className="text-xs text-gray-500 font-mono">
-                                                    ID: {attraction.id.slice(-8)}
-                                                </span>
-                                            </div>
+                                        {/* Botões de Ação */}
+                                        <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                                            <button 
+                                                onClick={() => handleEdit(attraction)}
+                                                className="bg-blue-100 text-blue-600 hover:bg-blue-200 px-4 py-2 rounded-lg font-semibold text-sm transition-colors"
+                                            >
+                                                Editar
+                                            </button>
+                                            <button 
+                                                onClick={() => handleDelete(attraction.id)}
+                                                className="bg-red-100 text-red-600 hover:bg-red-200 px-4 py-2 rounded-lg font-semibold text-sm transition-colors"
+                                            >
+                                                Excluir
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
