@@ -1,4 +1,3 @@
-// src/controllers/reservations.controller.ts
 import { Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import {
@@ -272,5 +271,172 @@ export const getTopVisitor = async (req: Request, res: Response) => {
     } catch (error) {
         console.error('Erro ao obter visitante que mais usou o sistema:', error);
         res.status(500).json({ message: 'Erro interno do servidor ao obter visitante que mais usou o sistema', error });
+    }
+};
+
+export const createReservation = async (req: Request, res: Response) => {
+    const { visitorId, attractionId, horarioReserva, dataReserva } = req.body;
+
+    if (!visitorId || !attractionId || !horarioReserva || !dataReserva) {
+        return res.status(400).json({ message: 'Todos os campos são obrigatórios: visitorId, attractionId, horarioReserva, dataReserva' });
+    }
+
+    try {
+        const attraction = attractionsStore.findById(attractionId);
+        const visitor = visitorsStore.findById(visitorId);
+
+        if (!attraction || !visitor) {
+            return res.status(404).json({ message: 'Atração ou visitante não encontrado.' });
+        }
+
+        if (!attraction.horariosDisponiveis.includes(horarioReserva)) {
+            return res.status(400).json({ 
+                message: 'Horário indisponível para esta atração.',
+                horariosDisponiveis: attraction.horariosDisponiveis
+            });
+        }
+
+        const existingReservation = reservationsStore.toArray().find(
+            (reservation) => 
+                reservation.visitorId === visitorId && 
+                reservation.attractionId === attractionId &&
+                reservation.horarioReserva === horarioReserva &&
+                new Date(reservation.dataReserva).toDateString() === new Date(dataReserva).toDateString() &&
+                reservation.status !== 'cancelada'
+        );
+
+        if (existingReservation) {
+            return res.status(409).json({ message: 'Visitante já possui uma reserva para esta atração neste horário e data.' });
+        }
+
+        const reservationsForHorario = reservationsStore.toArray().filter(
+            (reservation) => 
+                reservation.attractionId === attractionId &&
+                reservation.horarioReserva === horarioReserva &&
+                new Date(reservation.dataReserva).toDateString() === new Date(dataReserva).toDateString() &&
+                reservation.status !== 'cancelada'
+        );
+
+        if (reservationsForHorario.length >= attraction.capacidadePorHorario) {
+            return res.status(400).json({ 
+                message: 'Capacidade máxima atingida para este horário e data.',
+                capacidade: attraction.capacidadePorHorario,
+                ocupacao: reservationsForHorario.length
+            });
+        }
+
+        const newReservation = new Reservation(
+            uuidv4(),
+            visitorId,
+            attractionId,
+            horarioReserva,
+            new Date(dataReserva),
+            'pendente'
+        );
+
+        reservationsStore.append(newReservation);
+        await saveDataToDatabase();
+
+        const reservationWithAttractionName = {
+            ...newReservation,
+            attractionName: attraction.nome
+        };
+
+        res.status(201).json({ 
+            message: 'Reserva criada com sucesso!', 
+            reservation: reservationWithAttractionName 
+        });
+
+    } catch (error) {
+        console.error('Erro ao criar reserva:', error);
+        res.status(500).json({ message: 'Erro interno do servidor ao criar reserva', error });
+    }
+};
+
+export const getVisitorAttractionHistory = async (req: Request, res: Response) => {
+    const { visitorId } = req.params;
+
+    try {
+        const completedReservations = reservationsStore.toArray().filter(
+            res => res.visitorId === visitorId && res.status === 'concluida'
+        );
+
+        const attractionHistoryMap = new Map<string, { 
+            attractionId: string,
+            nome: string,
+            visitas: Array<{
+                data: Date,
+                horario: string,
+                reservationId: string
+            }>
+        }>();
+
+        for (const reservation of completedReservations) {
+            const attraction = attractionsStore.findById(reservation.attractionId);
+            if (!attraction) continue;
+
+            if (!attractionHistoryMap.has(reservation.attractionId)) {
+                attractionHistoryMap.set(reservation.attractionId, {
+                    attractionId: reservation.attractionId,
+                    nome: attraction.nome,
+                    visitas: []
+                });
+            }
+
+            const attractionEntry = attractionHistoryMap.get(reservation.attractionId);
+            if (attractionEntry) {
+                attractionEntry.visitas.push({
+                    data: new Date(reservation.dataReserva),
+                    horario: reservation.horarioReserva,
+                    reservationId: reservation.id
+                });
+            }
+        }
+
+        const attractionHistory = Array.from(attractionHistoryMap.values())
+            .sort((a, b) => b.visitas.length - a.visitas.length)
+            .map(entry => ({
+                ...entry,
+                totalVisitas: entry.visitas.length,
+                visitas: entry.visitas.sort((a, b) => b.data.getTime() - a.data.getTime())
+            }));
+
+        res.status(200).json(attractionHistory);
+    } catch (error) {
+        console.error('Erro ao buscar histórico de atrações do visitante:', error);
+        res.status(500).json({ message: 'Erro interno do servidor ao buscar histórico de atrações', error });
+    }
+};
+
+export const getAllReservations = async (req: Request, res: Response) => {
+    try {
+        const allReservations = reservationsStore.toArray().map(reservation => {
+            const attraction = attractionsStore.findById(reservation.attractionId);
+            const visitor = visitorsStore.findById(reservation.visitorId);
+            
+            return {
+                ...reservation,
+                attractionName: attraction ? attraction.nome : 'Atração Desconhecida',
+                visitorName: visitor ? visitor.nome : 'Visitante Desconhecido'
+            };
+        });
+
+        allReservations.sort((a, b) => {
+            const statusOrder = { pendente: 0, concluida: 1, cancelada: 2 };
+            const statusA = statusOrder[a.status as keyof typeof statusOrder] || 0;
+            const statusB = statusOrder[b.status as keyof typeof statusOrder] || 0;
+            
+            if (statusA !== statusB) {
+                return statusA - statusB;
+            }
+            
+            // Depois por data (mais recente primeiro)
+            return new Date(b.dataReserva).getTime() - new Date(a.dataReserva).getTime();
+        });
+
+        res.status(200).json(allReservations);
+    } catch (error) {
+        console.error('Erro ao buscar todas as reservas:', error);
+        res.status(500).json({ message: 'Erro interno do servidor ao buscar todas as reservas', error });
     }
 };

@@ -7,7 +7,9 @@ import {
     getAttractionQueueStatus,
     getTotalReservationsToday,
     getMostPopularAttraction,
-    getTopVisitor
+    getTopVisitor,
+    createReservation,
+    getAllReservations
 } from '../controllers/reservations.controller';
 
 const router = Router();
@@ -16,6 +18,8 @@ router.use('/attractions', attractionsRoutes);
 router.use('/visitors', visitorsRoutes);
 
 router.post('/queue/join', joinQueue);
+router.post('/reservations', createReservation);
+router.get('/reservations', getAllReservations);
 router.put('/reservations/:reservationId/complete', completeReservation);
 router.get('/attractions/:attractionId/queue-status', getAttractionQueueStatus);
 

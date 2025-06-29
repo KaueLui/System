@@ -57,6 +57,44 @@ export const getVisitorReservations = async (visitorId: string): Promise<Reserva
     return handleResponse<Reservation[]>(response);
 };
 
+export const getAllReservations = async (): Promise<(Reservation & { visitorName: string })[]> => {
+    const response = await fetch(`${API_BASE_URL}/reservations`);
+    return handleResponse<(Reservation & { visitorName: string })[]>(response);
+};
+
+export const completeReservation = async (reservationId: string): Promise<any> => {
+    const response = await fetch(`${API_BASE_URL}/reservations/${reservationId}/complete`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' }
+    });
+    return handleResponse<any>(response);
+};
+
+export interface AttractionHistoryEntry {
+    attractionId: string;
+    nome: string;
+    totalVisitas: number;
+    visitas: Array<{
+        data: string;
+        horario: string;
+        reservationId: string;
+    }>;
+}
+
+export const getVisitorAttractionHistory = async (visitorId: string): Promise<AttractionHistoryEntry[]> => {
+    const response = await fetch(`${API_BASE_URL}/visitors/${visitorId}/attraction-history`);
+    return handleResponse<AttractionHistoryEntry[]>(response);
+};
+
+export const createReservation = async (reservationData: { visitorId: string, attractionId: string, horarioReserva: string, dataReserva: string }): Promise<any> => {
+    const response = await fetch(`${API_BASE_URL}/reservations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(reservationData),
+    });
+    return handleResponse<any>(response);
+};
+
 export const getAttractionQueueStatus = async (attractionId: string): Promise<QueueStatusResponse> => {
     const response = await fetch(`${API_BASE_URL}/attractions/${attractionId}/queue-status`);
     return handleResponse<QueueStatusResponse>(response);
